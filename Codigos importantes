@@ -1,0 +1,125 @@
+#app.py
+import discord 
+import keras
+import tensorflow
+import numpy
+
+from keras.models import load_model  # TensorFlow is required for Keras to work
+from PIL import Image, ImageOps  # Install pillow instead of PIL
+import numpy as np
+
+def modelo(model_path,labels_path,img_path):
+    np.set_printoptions(suppress=True)
+    model = load_model(model_path, compile=False)
+    class_names = open(labels_path, "r").readlines()
+    data = np.ndarray(shape=(1, 224, 224, 3), dtype=np.float32)
+    image = Image.open(img_path).convert("RGB")
+    size = (224, 224)
+    image = ImageOps.fit(image, size, Image.Resampling.LANCZOS)
+    image_array = np.asarray(image)
+    normalized_image_array = (image_array.astype(np.float32) / 127.5) - 1
+    data[0] = normalized_image_array
+    prediction = model.predict(data)
+    index = np.argmax(prediction)
+    class_name = class_names[index]
+    confidence_score = prediction[0][index]
+    print("Class:", class_name[2:], end="")
+    print("Confidence Score:", confidence_score)
+
+
+#bot.py
+import discord
+from discord.ext import commands
+import random
+import os
+from app import modelo
+
+intents = discord.Intents.default()
+intents.message_content = True
+
+bot = commands.Bot(command_prefix='!', intents=intents)
+
+@bot.event
+async def on_ready():
+    print(f'We have logged in as {bot.user}')
+
+@bot.command()
+async def hello(ctx):
+    await ctx.send(f'Hola, soy un bot {bot.user}!')
+
+@bot.command()
+async def heh(ctx, count_heh=5):
+    await ctx.send("he" * count_heh)
+
+@bot.command()
+async def saludar(ctx, *, nombre: str = ""):
+    if nombre != "":
+        await ctx.send(f"Hola, {nombre}, ¿cómo estás?")
+    else:
+        await ctx.send(f"Hola, {ctx.author.name}, ¿cómo estás?")
+
+@bot.command()
+async def numero(ctx):
+    numero_aleatorio = random.randint(0, 100)
+    await ctx.send(f"{numero_aleatorio}")
+
+@bot.command()
+async def mem(ctx):
+    memes = os.listdir("img")
+    meme = random.choice(memes)
+    with open(f'img/{meme}', 'rb') as f:
+        picture = discord.File(f)
+    await ctx.send(file=picture)
+
+# Comandos Ecologicos
+practicas_faciles= {
+    "Separación de residuos": "Coloca diferentes contenedores para separar los residuos: uno para plásticos, otro para papel y cartón, uno más para vidrio, y uno para residuos orgánicos.Puedes etiquetar los contenedores para que todos en casa sepan dónde poner cada tipo de residuo.",
+    "Reutilización de envases": "Reutiliza frascos de vidrio para almacenar alimentos o como recipientes para manualidades.Las cajas de cartón pueden servir para organizar objetos pequeños.",
+    "Reciclaje de papel": "Usa el papel por ambas caras antes de reciclarlo. Los papeles viejos pueden convertirse en blocs de notas improvisados.",
+    "Compostaje casero": "Crea un compost con residuos orgánicos como cáscaras de frutas y vegetales, café molido, y restos de plantas. Esto reducirá la cantidad de basura y enriquecerá la tierra de tu jardín."
+}
+
+@bot.command()
+async def practicas(ctx):
+    practicas_posibles = list(practicas_faciles.keys())
+    practica_aleatoria = random.choice(practicas_posibles)
+    dato = practicas_faciles[practica_aleatoria]
+    await ctx.send(f'Hola!, aqui tienes una practica para reciclar fácil:{practica_aleatoria}, la actividad comprende {dato}')
+
+# Funciones matemáticas
+
+@bot.command()
+async def suma(ctx, a: float, b: float):
+    resultado = a + b
+    await ctx.send(f"La suma de {a} + {b} = {resultado}")
+
+@bot.command()
+async def resta(ctx, a: float, b: float):
+    resultado = a - b
+    await ctx.send(f"La resta de {a} - {b} = {resultado}")
+
+@bot.command()
+async def multiplicacion(ctx, a: float, b: float):
+    resultado = a * b
+    await ctx.send(f"La multiplicación de {a} * {b} = {resultado}")
+
+@bot.command()
+async def division(ctx, a: float, b: float):
+    if b != 0:
+        resultado = a / b
+        await ctx.send(f"La división de {a} / {b} = {resultado}")
+    else:
+        await ctx.send("Error: No se puede dividir por cero.")
+
+@bot.command()
+async def check(ctx):
+    if ctx.message.attachments:
+        for archivo in ctx.message.attachments:
+            nombre_archivo=archivo.filename
+            url_archivo=archivo.url 
+            await archivo.save(f"./img/{nombre_archivo}")
+            await ctx.send(f"{modelo(model_path="keras_model.h5", labels_path="labels.txt",img_path=f"./img/{nombre_archivo}")}")
+    else:
+        await ctx.send("El mensaje no contiene archivos o imagenes ")
+
+bot.run("")
